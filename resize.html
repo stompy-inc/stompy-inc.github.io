@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正方形画像変換ツール</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        .drop-zone {
+            border: 2px dashed #aaa;
+            padding: 20px;
+            width: 300px;
+            cursor: pointer;
+        }
+        #result-image {
+            margin-top: 20px;
+            max-width: 300px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div>正方形画像変換ツール</div>
+    <div class="container">
+        <div class="drop-zone" id="drop-zone">
+            画像をアップロードするか、ここにドラッグ＆ドロップしてください
+        </div>
+        <input type="file" id="file-input" accept="image/*" style="display: none;">
+        <canvas id="canvas" style="display: none;"></canvas>
+        <img id="result-image" alt="変換された画像" />
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const canvas = document.getElementById('canvas');
+        const resultImage = document.getElementById('result-image');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#333';
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#aaa');
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#aaa';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) processImage(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) processImage(file);
+        });
+
+        function processImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const maxSize = Math.max(img.width, img.height);
+                    canvas.width = maxSize;
+                    canvas.height = maxSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, maxSize, maxSize);
+                    const offsetX = (maxSize - img.width) / 2;
+                    const offsetY = (maxSize - img.height) / 2;
+                    ctx.drawImage(img, offsetX, offsetY);
+
+                    resultImage.src = canvas.toDataURL('image/png');
+                    resultImage.style.display = 'block';
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
