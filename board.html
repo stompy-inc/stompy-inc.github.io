@@ -3,237 +3,227 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>board</title>
+    <title>board (image & video)</title>
     <style>
-    	body {
+        body {
             margin: 0;
             overflow: hidden;
             position: relative;
             width: 100vw;
             height: 100vh;
         }
-        img.draggable {
+        /* 画像・動画共通のドラッグ対象 */
+        .draggable {
             position: absolute;
             cursor: pointer;
             transition: 0.2s;
             border: 2px solid transparent;
         }
-        img.selected {
+        /* 選択中 */
+        .selected {
             border: 2px solid blue;
         }
-        img.clone {
+        /* ドラッグ中の半透明コピー */
+        .clone {
             opacity: 0.5;
             pointer-events: none;
         }
-        
-	    textarea{
-	    	position:absolute;
-	    	top:40px;
-	    	background:none;
-	    	border:none;
-	    	color:deeppink;
-	    	font-weight:bold;
-	    	width:27px;
-	    	height:700px;
-	    	font-size:25px;
-	    	-webkit-text-stroke: 1px #FFF;
-	    	font-family: sans-serif;
-	    	overflow:hidden;
-	    	writing-mode: vertical-rl;
-	    	text-orientation: upright;
-	    	line-height: 90%;
-	    }
+
+        textarea {
+            position: absolute;
+            top: 40px;
+            background: none;
+            border: none;
+            color: deeppink;
+            font-weight: bold;
+            width: 27px;
+            height: 300px;
+            font-size: 25px;
+            font-family: sans-serif;
+            overflow: hidden;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            line-height: 90%;
+        }
     </style>
 </head>
 <body style="overflow:hidden;background:#4c4a48;">
-    
+
     <div style="padding:5px">
-		<button id="fullscreenBtn">💻</button>
-	    <script>
-	    	//フルスクリーンボタンの処理
-		    const fullscreenBtn = document.getElementById('fullscreenBtn');
-			// ボタンのクリックイベントリスナーを追加
-			fullscreenBtn.addEventListener('click', function() {
-			    if (!document.fullscreenElement) {
-			        // 全画面表示が有効でない場合、全画面表示を有効にする
-			        if (document.documentElement.requestFullscreen) {
-			            document.documentElement.requestFullscreen();
-			        } else if (document.documentElement.mozRequestFullScreen) { /* Firefox */
-			            document.documentElement.mozRequestFullScreen();
-			        } else if (document.documentElement.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-			            document.documentElement.webkitRequestFullscreen();
-			        } else if (document.documentElement.msRequestFullscreen) { /* IE/Edge */
-			            document.documentElement.msRequestFullscreen();
-			        }
-			    } else {
-			        // すでに全画面表示が有効の場合、全画面表示を終了する
-			        if (document.exitFullscreen) {
-			            document.exitFullscreen();
-			        } else if (document.mozCancelFullScreen) { /* Firefox */
-			            document.mozCancelFullScreen();
-			        } else if (document.webkitExitFullscreen) { /* Chrome, Safari and Opera */
-			            document.webkitExitFullscreen();
-			        } else if (document.msExitFullscreen) { /* IE/Edge */
-			            document.msExitFullscreen();
-			        }
-			    }
-			});
-	    </script>
-		<!-- 既存のファイル入力を "hidden" クラスで隠す -->
-		<input type="file" id="fileInput" style="display:none;">
-		<!-- カスタムのボタンとラベルを追加 -->
-		<button id="customUploadBtn">🎨</button>
-	    <script>
-	    	//ブラウザ標準のボタンを隠して、用意したアップロードボタンを稼働させる。
-			const customUploadBtn = document.getElementById('customUploadBtn');
-			// カスタムボタンがクリックされたときに隠れているinputをクリックする
-			customUploadBtn.addEventListener('click', function() {
-			    fileInput.click();
-			});
-	    </script>
-	</div>
-	
+        <button id="fullscreenBtn">💻</button>
+        <script>
+            // フルスクリーンボタンの処理
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            fullscreenBtn.addEventListener('click', function () {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen?.() ||
+                        document.documentElement.webkitRequestFullscreen?.() ||
+                        document.documentElement.mozRequestFullScreen?.() ||
+                        document.documentElement.msRequestFullscreen?.();
+                } else {
+                    document.exitFullscreen?.() ||
+                        document.webkitExitFullscreen?.() ||
+                        document.mozCancelFullScreen?.() ||
+                        document.msExitFullscreen?.();
+                }
+            });
+        </script>
+        <!-- 隠しておく input[type=file] -->
+        <input type="file" id="fileInput" style="display:none;" multiple>
+        <button id="customUploadBtn">🎨</button>
+        <script>
+            const customUploadBtn = document.getElementById('customUploadBtn');
+            customUploadBtn.addEventListener('click', () => fileInput.click());
+        </script>
+    </div>
+
     <script>
-        let selectedImage = null;
-        let clone = null;
-        
-		var id_count = 0;
-		var z_index_count = 0;//重なり順を管理する
-        
-        document.getElementById('fileInput').addEventListener('change', function(e) {
+        let selectedElem = null;   // 選択中要素(img / video)
+        let clone = null;          // ドラッグ用クローン
+
+        let id_count = 0;          // 要素id用カウンタ
+        let z_index_count = 0;     // 重なり順
+
+        // ファイルアップロード
+        document.getElementById('fileInput').addEventListener('change', function (e) {
             const files = e.target.files;
 
             for (let file of files) {
-                const reader = new FileReader();
-
-                reader.onload = function(event) {
-                	
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.classList.add('draggable');
-
-                    img.onload = function() {
-                    	id_count = id_count + 1;
-                    	img.id = "img_" + String(id_count);//画像にid付与
-                        img.style.left = "0px";
-                        img.style.top = "0px";
-                        document.body.appendChild(img);
-                        addControlButtons(img); // ボタンの追加関数を呼び出し
+                // 画像
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        prepareElement(img);
                     }
-                };
-
-                reader.readAsDataURL(file);
+                    reader.readAsDataURL(file);
+                }
+                // 動画 (mp4 / その他 video/*)
+                else if (file.type.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file);
+                    video.controls = true;
+                    video.loop = true
+                    video.width = 320; // 初期幅
+                    prepareElement(video);
+                }
             }
+            // input をリセット
             e.target.value = '';
-
         });
-        
-		let offsetX, offsetY;
-		
-		document.body.addEventListener('click', function(e) {
-		    if (selectedImage && clone) {
-		    	
-		    	z_index_count = z_index_count + 1;
-		    	
-		        selectedImage.style.left = clone.style.left;
-		        selectedImage.style.top = clone.style.top;
-		        
-		        selectedImage.style.zIndex = String(z_index_count);
-		        //ボタンも移動させる
-		        document.getElementById('btn_' + selectedImage.id).style.left = clone.style.left;
-		        document.getElementById('btn_' + selectedImage.id).style.top = clone.style.top;
-		        document.getElementById('btn_' + selectedImage.id).style.zIndex = String(z_index_count);
-		        
-		        //
-		        selectedImage.classList.remove('selected');
-		        clone.remove();
-		        clone = null;
-		        selectedImage = null;
-		    } else if (e.target.classList.contains('draggable')) {
-		        if (selectedImage) {
-		            selectedImage.classList.remove('selected');
-		            if (clone) {
-		                clone.remove();
-		                clone = null;
-		            }
-		        }
-		        selectedImage = e.target;
-		        selectedImage.classList.add('selected');
-		
-				if (clone == null){
-		        clone = selectedImage.cloneNode(true);
-		        clone.style.left = selectedImage.style.left;
-		        clone.style.top = selectedImage.style.top;
-		        clone.classList.add('clone');
-		        document.body.appendChild(clone);
-		
-		        // クローンとマウスポインタのオフセットを保存
-		        offsetX = e.clientX - clone.getBoundingClientRect().left;
-		        offsetY = e.clientY - clone.getBoundingClientRect().top;
-		       }
-		    }
-		    
-		    
-		});
-		
-		document.body.addEventListener('mousemove', function(e) {
-		    if (clone) {
-		        clone.style.left = (e.clientX - offsetX) + 'px';
-		        clone.style.top = (e.clientY - offsetY) + 'px';
-		    }
-		});
 
+        /* 画像・動画共通の初期化処理 */
+        function prepareElement(elem) {
+            id_count++;
+            elem.id = `elem_${id_count}`;
+            elem.classList.add('draggable');
+            elem.style.left = '0px';
+            elem.style.top = '0px';
+            document.body.appendChild(elem);
+            addControlButtons(elem);
+        }
+
+        let offsetX, offsetY; // マウスとクローン左上とのオフセット
+
+        // 要素選択 & ドラッグ開始
+        document.body.addEventListener('click', function (e) {
+            // ドラッグ終了 (クリックで確定)
+            if (selectedElem && clone) {
+                z_index_count++;
+                selectedElem.style.left = clone.style.left;
+                selectedElem.style.top = clone.style.top;
+                selectedElem.style.zIndex = String(z_index_count);
+
+                const btnGroup = document.getElementById('btn_' + selectedElem.id);
+                if (btnGroup) {
+                    btnGroup.style.left = clone.style.left;
+                    btnGroup.style.top = clone.style.top;
+                    btnGroup.style.zIndex = String(z_index_count);
+                }
+
+                // 選択解除
+                selectedElem.classList.remove('selected');
+                clone.remove();
+                clone = null;
+                selectedElem = null;
+            }
+            // ドラッグ開始
+            else if (e.target.classList.contains('draggable')) {
+                if (selectedElem) {
+                    selectedElem.classList.remove('selected');
+                    clone?.remove();
+                    clone = null;
+                }
+                selectedElem = e.target;
+                selectedElem.classList.add('selected');
+
+                if (!clone) {
+                    clone = selectedElem.cloneNode(true);
+                    clone.classList.add('clone');
+                    clone.style.left = selectedElem.style.left;
+                    clone.style.top = selectedElem.style.top;
+                    document.body.appendChild(clone);
+
+                    // クローンとマウスポインタのオフセットを保存
+                    const rect = clone.getBoundingClientRect();
+                    offsetX = e.clientX - rect.left;
+                    offsetY = e.clientY - rect.top;
+                }
+            }
+        });
+
+        // ドラッグ中 (クローンを追従)
+        document.body.addEventListener('mousemove', function (e) {
+            if (clone) {
+                clone.style.left = (e.clientX - offsetX) + 'px';
+                clone.style.top = (e.clientY - offsetY) + 'px';
+            }
+        });
     </script>
-    
+
     <script>
-    	// 画像に対してボタンを追加する関数
-		function addControlButtons(img) {
-		    let enlargeBtn = createButton("+");
-		    let reduceBtn = createButton("-");
-		    let hideBtn = createButton("x");
-		
-		    enlargeBtn.addEventListener('click', function() {
-		        img.width *= 1.1;
-		    });
-		
-		    reduceBtn.addEventListener('click', function() {
-		        img.width *= 0.9;
-		    });
-		
-		    hideBtn.addEventListener('click', function() {
-		        img.style.display = "none";
-		        document.getElementById('btn_' + img.id).style.display = "none";//ボタン類も消す
-		    });
-		
-		    let btnGroup = document.createElement('div');
-		    btnGroup.id = "btn_img_" + String(id_count);//ボタンを画像に追従させるため、idを付与
-		    btnGroup.style.position = "absolute";
-		    btnGroup.style.left = img.style.left;
-		    btnGroup.style.top = img.style.top;
-		    
-		    btnGroup.appendChild(enlargeBtn);
-		    btnGroup.appendChild(reduceBtn);
-		    btnGroup.appendChild(hideBtn);
-		
-		
-			let txtArea1 = document.createElement('textarea');
-			txtArea1.style.left = "10px";
-		    btnGroup.appendChild(txtArea1);
-			let txtArea2 = document.createElement('textarea');
-		    txtArea2.style.left = "42px";
-		    btnGroup.appendChild(txtArea2);
-		    
-		    document.body.appendChild(btnGroup);
-		    
-		}
-		
-		// ボタンを作成する関数
-		function createButton(text) {
-		    let btn = document.createElement('button');
-		    btn.innerText = text;
-		    btn.style.marginRight = "2px";
-		    return btn;
-		}
+        // 画像・動画用のコントロールボタン
+        function addControlButtons(elem) {
+            const enlargeBtn = createButton('+');
+            const reduceBtn = createButton('-');
+            const hideBtn = createButton('x');
+
+            enlargeBtn.addEventListener('click', () => elem.width *= 1.1);
+            reduceBtn.addEventListener('click', () => elem.width *= 0.9);
+            hideBtn.addEventListener('click', () => {
+                elem.style.display = 'none';
+                document.getElementById('btn_' + elem.id).style.display = 'none';
+            });
+
+            const btnGroup = document.createElement('div');
+            btnGroup.id = 'btn_' + elem.id;
+            btnGroup.style.position = 'absolute';
+            btnGroup.style.left = elem.style.left;
+            btnGroup.style.top = elem.style.top;
+
+            btnGroup.appendChild(enlargeBtn);
+            btnGroup.appendChild(reduceBtn);
+            btnGroup.appendChild(hideBtn);
+
+            // 縦書きテキストエリア 2つ (元コードそのまま)
+            const txtArea1 = document.createElement('textarea');
+            txtArea1.style.left = '10px';
+            btnGroup.appendChild(txtArea1);
+
+            const txtArea2 = document.createElement('textarea');
+            txtArea2.style.left = '42px';
+            btnGroup.appendChild(txtArea2);
+
+            document.body.appendChild(btnGroup);
+        }
+
+        function createButton(text) {
+            const btn = document.createElement('button');
+            btn.innerText = text;
+            btn.style.marginRight = '2px';
+            return btn;
+        }
     </script>
 </body>
 </html>
