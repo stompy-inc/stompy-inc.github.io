@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>WAV → MP3 変換ツール</title>
+  <script src="https://unpkg.com/lamejs@1.2.0/lame.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 2em; text-align:center;margin:auto;}
+    input[type="file"] { margin-bottom: 1em; }
+    button { padding: 0.5em 1em; }
+    #status { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>WAV → MP3 変換ツール</h1>
+  <input type="file" id="wavInput" accept=".wav" />
+  <br />
+  <button onclick="convertWavToMp3()">変換してダウンロード</button>
+  <p id="status"></p>
+
+  <script>
+    function convertWavToMp3() {
+      const fileInput = document.getElementById('wavInput');
+      const status = document.getElementById('status');
+
+      if (!fileInput.files.length) {
+        status.textContent = "WAVファイルを選択してください。";
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        const arrayBuffer = event.target.result;
+        const wav = lamejs.WavHeader.readHeader(new DataView(arrayBuffer));
+        const samples = new Int16Array(arrayBuffer, wav.dataOffset, wav.dataLen / 2);
+
+        const mp3Encoder = new lamejs.Mp3Encoder(wav.channels, wav.sampleRate, 128);
+        const mp3Data = [];
+        const sampleBlockSize = 1152;
+        let sampleIndex = 0;
+
+        while (sampleIndex < samples.length) {
+          const sampleChunk = samples.subarray(sampleIndex, sampleIndex + sampleBlockSize);
+          const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+          if (mp3buf.length > 0) mp3Data.push(mp3buf);
+          sampleIndex += sampleBlockSize;
+        }
+
+        const mp3buf = mp3Encoder.flush();
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name.replace(/\.wav$/, '.mp3');
+        a.textContent = "MP3をダウンロード";
+        status.innerHTML = '';
+        status.appendChild(a);
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>
