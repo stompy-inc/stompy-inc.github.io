@@ -501,9 +501,9 @@ class SkyKickRescueScene extends Phaser.Scene {
     this.subMessageText.setVisible(false);
 
     this.actionButton = this.add.container(GAME_WIDTH * 0.5, GAME_HEIGHT - 150);
-    this.actionButtonShadow = this.add.rectangle(0, 6, 276, 90, 0x06111f, 0.32);
+    this.actionButtonShadow = this.add.rectangle(0, 6, 214, 82, 0x06111f, 0.32);
     this.actionButtonShadow.setStrokeStyle(2, 0x000000, 0.08);
-    this.actionButtonBg = this.add.rectangle(0, 0, 276, 90, 0x0c2342, 0.92);
+    this.actionButtonBg = this.add.rectangle(0, 0, 214, 82, 0x0c2342, 0.92);
     this.actionButtonBg.setStrokeStyle(3, 0xffef84, 0.85);
     this.actionButtonLabel = this.add.text(0, 0, "Start", {
       fontFamily: UI_FONT_FAMILY,
@@ -524,15 +524,68 @@ class SkyKickRescueScene extends Phaser.Scene {
       this.handleActionButton();
     });
     this.actionButton.setVisible(false);
+
+    this.shareButton = this.add.container(GAME_WIDTH * 0.5, GAME_HEIGHT - 150);
+    this.shareButtonShadow = this.add.rectangle(0, 6, 214, 82, 0x06111f, 0.22);
+    this.shareButtonShadow.setStrokeStyle(2, 0x000000, 0.06);
+    this.shareButtonBg = this.add.rectangle(0, 0, 214, 82, 0x0b1627, 0.76);
+    this.shareButtonBg.setStrokeStyle(3, 0xc8ecff, 0.92);
+    this.shareButtonLabel = this.add.text(0, 0, "Share", {
+      fontFamily: UI_FONT_FAMILY,
+      fontSize: "24px",
+      fontStyle: "bold",
+      color: "#dff9ff",
+      stroke: "#07111d",
+      strokeThickness: 6
+    });
+    this.shareButtonLabel.setOrigin(0.5);
+    this.shareButton.add([this.shareButtonShadow, this.shareButtonBg, this.shareButtonLabel]);
+    this.shareButton.setDepth(120);
+    this.shareButtonBg.setInteractive({ useHandCursor: true });
+    this.shareButtonBg.on("pointerdown", (pointer, localX, localY, event) => {
+      if (event && event.stopPropagation) {
+        event.stopPropagation();
+      }
+      this.handleShareButton();
+    });
+    this.shareButton.setVisible(false);
+
+    this.shareFeedbackText = this.add.text(GAME_WIDTH * 0.5, GAME_HEIGHT - 236, "", {
+      fontFamily: UI_FONT_FAMILY,
+      fontSize: "18px",
+      color: "#dff9ff",
+      stroke: "#07111d",
+      strokeThickness: 6,
+      align: "center"
+    });
+    this.shareFeedbackText.setOrigin(0.5);
+    this.shareFeedbackText.setDepth(121);
+    this.shareFeedbackText.setVisible(false);
   }
 
   showActionButton(label) {
     this.actionButtonLabel.setText(label);
+    this.actionButton.x = GAME_WIDTH * 0.5;
+    this.actionButton.y = GAME_HEIGHT - 150;
     this.actionButton.setVisible(true);
+    this.shareButton.setVisible(false);
+  }
+
+  showResultButtons() {
+    const offsetX = 114;
+    this.actionButtonLabel.setText("Play");
+    this.actionButton.x = GAME_WIDTH * 0.5 - offsetX;
+    this.actionButton.y = GAME_HEIGHT - 150;
+    this.actionButton.setVisible(true);
+    this.shareButton.x = GAME_WIDTH * 0.5 + offsetX;
+    this.shareButton.y = GAME_HEIGHT - 150;
+    this.shareButton.setVisible(true);
   }
 
   hideActionButton() {
     this.actionButton.setVisible(false);
+    this.shareButton.setVisible(false);
+    this.hideShareFeedback();
   }
 
   handleActionButton() {
@@ -546,6 +599,106 @@ class SkyKickRescueScene extends Phaser.Scene {
     if (this.phase === "clear" || this.phase === "gameover") {
       this.scene.restart({ autoStart: true });
     }
+  }
+
+  buildShareData() {
+    const shownAltitude = formatAltitudeDisplay(
+      this.phase === "clear" ? GOAL_ALTITUDE : this.altitude
+    );
+    const comboText = this.bestCombo >= 1 ? ` BEST COMBO x${this.bestCombo}` : "";
+    const resultText = this.phase === "clear"
+      ? `Cleared Jet Kamen at ${shownAltitude}!`
+      : `Reached ${shownAltitude} in Jet Kamen!`;
+    const url = window.location.href;
+    return {
+      title: "Jet Kamen",
+      text: `${resultText}${comboText}\n#JetKamen`,
+      url
+    };
+  }
+
+  async copyShareText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        console.warn("Clipboard API copy failed", error);
+      }
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (error) {
+      console.warn("execCommand copy failed", error);
+    }
+
+    document.body.removeChild(textarea);
+    return copied;
+  }
+
+  showShareFeedback(message, color = "#dff9ff") {
+    if (this.shareFeedbackTimer) {
+      this.shareFeedbackTimer.remove(false);
+      this.shareFeedbackTimer = null;
+    }
+
+    this.shareFeedbackText.setText(message);
+    this.shareFeedbackText.setColor(color);
+    this.shareFeedbackText.setVisible(true);
+    this.shareFeedbackTimer = this.time.delayedCall(1400, () => {
+      this.hideShareFeedback();
+    });
+  }
+
+  hideShareFeedback() {
+    if (this.shareFeedbackTimer) {
+      this.shareFeedbackTimer.remove(false);
+      this.shareFeedbackTimer = null;
+    }
+    this.shareFeedbackText.setVisible(false);
+  }
+
+  async handleShareButton() {
+    if (this.phase !== "clear" && this.phase !== "gameover") {
+      return;
+    }
+
+    const shareData = this.buildShareData();
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        this.showShareFeedback("Shared!");
+        return;
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        console.warn("Web Share API failed", error);
+      }
+    }
+
+    const copied = await this.copyShareText(`${shareData.text}\n${shareData.url}`);
+    if (copied) {
+      this.showShareFeedback("Copied!");
+      return;
+    }
+
+    this.showShareFeedback("Share unavailable", "#ffe580");
   }
 
   startJetBurst(now) {
@@ -1017,7 +1170,7 @@ class SkyKickRescueScene extends Phaser.Scene {
 
       this.time.delayedCall(500, () => {
         this.gameOverBestComboVisible = true;
-        this.showActionButton("Play");
+        this.showResultButtons();
         this.gameOverReady = true;
       });
     });
@@ -1048,7 +1201,7 @@ class SkyKickRescueScene extends Phaser.Scene {
 
     this.time.delayedCall(500, () => {
       this.clearBestComboVisible = true;
-      this.showActionButton("Play");
+      this.showResultButtons();
     });
   }
 }

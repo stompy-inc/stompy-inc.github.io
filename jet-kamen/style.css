@@ -19,7 +19,7 @@ body {
 
 body {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   overflow: hidden;
   background:
@@ -33,12 +33,19 @@ body {
 }
 
 #app {
-  width: min(100vw, calc(100vh * 9 / 16));
-  height: min(100vh, calc(100vw * 16 / 9));
+  width: min(100vw, calc(100dvh * 9 / 16));
+  height: min(100dvh, calc(100vw * 16 / 9));
   display: flex;
   align-items: stretch;
   justify-content: center;
   box-sizing: border-box;
+}
+
+@supports not (height: 100dvh) {
+  #app {
+    width: min(100vw, calc(100vh * 9 / 16));
+    height: min(100vh, calc(100vw * 16 / 9));
+  }
 }
 
 #game-shell {
